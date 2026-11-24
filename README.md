@@ -16,7 +16,7 @@ Fabric mod for Minecraft 26.3. Needs Fabric API. Install on the server and every
 - Punch a knot to remove it. Its leads drop as items.
 - Shears on a knot cut its leads.
 - Animals on a lead can be tied to any block the same way. Fences still use the vanilla knot.
-- Leads can be up to 32 blocks long.
+- Leads can be up to 50 blocks long.
 - Right-click a knot with a **stick** to change how much its leads sag: pulled tight, slight,
   medium (the default), loose, very loose.
 - Breaking the block a knot is on drops its leads.

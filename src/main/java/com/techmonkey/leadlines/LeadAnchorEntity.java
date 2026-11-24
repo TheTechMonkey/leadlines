@@ -45,7 +45,7 @@ import net.minecraft.world.phys.Vec3;
 public class LeadAnchorEntity extends Entity implements Leashable {
     /** Center of the knot above the entity's position (the knot model is 0.5 tall). */
     private static final double KNOT_CENTER = 0.25;
-    public static final double MAX_LEAD_LENGTH = 32.0;
+    public static final double MAX_LEAD_LENGTH = 50.0;
     /** How much each slack level lets a lead sag, as a fraction of its length. Level 0 is pulled tight. */
     public static final float[] SLACK_SAG = {0.0F, 0.03F, 0.06F, 0.1F, 0.15F};
     public static final int DEFAULT_SLACK = 2;
@@ -355,7 +355,7 @@ public class LeadAnchorEntity extends Entity implements Leashable {
 
     @Override
     public boolean shouldRenderAtSqrDistance(double distance) {
-        return distance < 4096.0;
+        return distance < 16384.0;
     }
 
     // ----- Saving ----------------------------------------------------------------------
