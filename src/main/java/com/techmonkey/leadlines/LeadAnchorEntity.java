@@ -28,6 +28,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -43,11 +45,16 @@ import net.minecraft.world.phys.Vec3;
 public class LeadAnchorEntity extends Entity implements Leashable {
     /** Center of the knot above the entity's position (the knot model is 0.5 tall). */
     private static final double KNOT_CENTER = 0.25;
-    private static final double MAX_LEAD_LENGTH = 16.0;
+    public static final double MAX_LEAD_LENGTH = 32.0;
+    /** How much each slack level lets a lead sag, as a fraction of its length. Level 0 is pulled tight. */
+    public static final float[] SLACK_SAG = {0.0F, 0.03F, 0.06F, 0.1F, 0.15F};
+    public static final int DEFAULT_SLACK = 2;
     private static final int BLOCK_CHECK_INTERVAL = 10;
 
     /** The side of the block the knot is on. Synced so the client can light the knot from outside the block. */
     private static final EntityDataAccessor<Direction> FACE = SynchedEntityData.defineId(LeadAnchorEntity.class, EntityDataSerializers.DIRECTION);
+    /** How much the lead going out of this knot sags (index into SLACK_SAG). */
+    private static final EntityDataAccessor<Integer> SLACK = SynchedEntityData.defineId(LeadAnchorEntity.class, EntityDataSerializers.INT);
 
     private BlockPos attachedTo = BlockPos.ZERO;
     private Leashable.@Nullable LeashData leashData;
@@ -68,6 +75,28 @@ public class LeadAnchorEntity extends Entity implements Leashable {
 
     public BlockPos getAttachedTo() {
         return attachedTo;
+    }
+
+    public int getSlack() {
+        return entityData.get(SLACK);
+    }
+
+    public void setSlack(int slack) {
+        entityData.set(SLACK, Math.floorMod(slack, SLACK_SAG.length));
+    }
+
+    /**
+     * Leashable things tied to {@code holder}. Vanilla only looks 16 blocks around the holder,
+     * which is too short for long leads, so this searches as far as a lead can reach.
+     */
+    public static List<Leashable> leashedTo(Entity holder) {
+        double reach = MAX_LEAD_LENGTH * 2.0 + 4.0;
+        AABB area = AABB.ofSize(holder.getBoundingBox().getCenter(), reach, reach, reach);
+        return holder.level().getEntitiesOfClass(Entity.class, area,
+                        entity -> entity instanceof Leashable leashable && leashable.getLeashHolder() == holder)
+                .stream()
+                .map(Leashable.class::cast)
+                .toList();
     }
 
     public Direction getFace() {
@@ -202,7 +231,7 @@ public class LeadAnchorEntity extends Entity implements Leashable {
         if (isRemoved() || level().isClientSide()) {
             return;
         }
-        if (leashData == null && Leashable.leashableLeashedTo(this).isEmpty()) {
+        if (leashData == null && leashedTo(this).isEmpty()) {
             discard();
         }
     }
@@ -220,7 +249,7 @@ public class LeadAnchorEntity extends Entity implements Leashable {
             }
         }
         setLeashData(null);
-        for (Leashable tiedHere : Leashable.leashableLeashedTo(this)) {
+        for (Leashable tiedHere : leashedTo(this)) {
             if (dropLeads) {
                 tiedHere.dropLeash();
             } else {
@@ -248,6 +277,12 @@ public class LeadAnchorEntity extends Entity implements Leashable {
             return InteractionResult.SUCCESS;
         }
 
+        // A stick adjusts how much the leads at this knot sag: tight, slight, medium, loose, very loose.
+        if (held.is(Items.STICK)) {
+            cycleSlack(player);
+            return InteractionResult.SUCCESS;
+        }
+
         // Tie whatever the player is holding on a lead to this anchor.
         boolean tied = false;
         for (Leashable leashable : LeadConnections.heldBy(player)) {
@@ -269,7 +304,7 @@ public class LeadAnchorEntity extends Entity implements Leashable {
 
         // Empty hand: pick the leads tied here back up, like a vanilla fence knot.
         boolean pickedUp = false;
-        List<Leashable> tiedHere = Leashable.leashableLeashedTo(this);
+        List<Leashable> tiedHere = leashedTo(this);
         for (Leashable leashable : tiedHere) {
             if (leashable.canHaveALeashAttachedTo(player)) {
                 leashable.setLeashedTo(player, true);
@@ -281,6 +316,27 @@ public class LeadAnchorEntity extends Entity implements Leashable {
             return InteractionResult.SUCCESS;
         }
         return InteractionResult.PASS;
+    }
+
+    private void cycleSlack(Player player) {
+        List<LeadAnchorEntity> leads = new java.util.ArrayList<>();
+        if (isLeashed()) {
+            leads.add(this);
+        }
+        for (Leashable tiedHere : leashedTo(this)) {
+            if (tiedHere instanceof LeadAnchorEntity anchor) {
+                leads.add(anchor);
+            }
+        }
+        if (leads.isEmpty()) {
+            return;
+        }
+        int next = Math.floorMod(leads.getFirst().getSlack() + 1, SLACK_SAG.length);
+        for (LeadAnchorEntity lead : leads) {
+            lead.setSlack(next);
+        }
+        playSound(SoundEvents.LEAD_TIED, 0.6F, 0.8F + 0.1F * next);
+        player.sendOverlayMessage(Component.translatable("message.leadlines.slack." + next));
     }
 
     @Override
@@ -307,12 +363,14 @@ public class LeadAnchorEntity extends Entity implements Leashable {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder entityData) {
         entityData.define(FACE, Direction.UP);
+        entityData.define(SLACK, DEFAULT_SLACK);
     }
 
     @Override
     protected void addAdditionalSaveData(ValueOutput output) {
         output.store("attached_to", BlockPos.CODEC, attachedTo);
         output.store("face", Direction.CODEC, getFace());
+        output.putInt("slack", getSlack());
         if (leashData != null && leashData.leashHolder instanceof Player) {
             output.putBoolean("held_by_player", true);
         } else {
@@ -324,6 +382,7 @@ public class LeadAnchorEntity extends Entity implements Leashable {
     protected void readAdditionalSaveData(ValueInput input) {
         attachedTo = input.read("attached_to", BlockPos.CODEC).orElse(blockPosition());
         entityData.set(FACE, input.read("face", Direction.CODEC).orElse(Direction.UP));
+        setSlack(input.getIntOr("slack", DEFAULT_SLACK));
         heldByPlayerWhenSaved = input.getBooleanOr("held_by_player", false);
         readLeashData(input);
     }

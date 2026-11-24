@@ -36,7 +36,7 @@ public final class LeadConnections {
     }
 
     public static List<Leashable> heldBy(Player player) {
-        return Leashable.leashableLeashedTo(player);
+        return LeadAnchorEntity.leashedTo(player);
     }
 
     /** Fabric {@code UseBlockCallback}: runs on both client and server before vanilla block use. */
