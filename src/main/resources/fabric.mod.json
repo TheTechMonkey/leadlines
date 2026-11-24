@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "leadlines",
+  "version": "${version}",
+  "name": "Lead Lines",
+  "description": "Tie leads to any block, not just fences, by right-clicking. String ropes, power lines and decorations between logs, walls, fences or anything else. No sneaking needed, so it works while flying in creative.",
+  "authors": [
+    "TechMonkey"
+  ],
+  "contributors": [
+    "Idea from Leash Fences by Jodek"
+  ],
+  "contact": {
+    "sources": "https://github.com/TheTechMonkey/leadlines"
+  },
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.techmonkey.leadlines.LeadLines"
+    ],
+    "client": [
+      "com.techmonkey.leadlines.client.LeadLinesClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "fabric-api": "*",
+    "minecraft": "~26.3",
+    "java": ">=25"
+  }
+}
