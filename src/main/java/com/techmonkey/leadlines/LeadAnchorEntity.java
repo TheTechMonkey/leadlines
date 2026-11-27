@@ -73,6 +73,13 @@ public class LeadAnchorEntity extends Entity implements Leashable {
         return anchor;
     }
 
+    /** The knot whose center is at {@code point}, if there is one (e.g. one already on this fence post). */
+    public static @Nullable LeadAnchorEntity findAt(Level level, Vec3 point) {
+        AABB area = AABB.ofSize(new Vec3(point.x, point.y - KNOT_CENTER, point.z), 0.1, 0.1, 0.1);
+        List<LeadAnchorEntity> found = level.getEntitiesOfClass(LeadAnchorEntity.class, area, anchor -> !anchor.isRemoved());
+        return found.isEmpty() ? null : found.getFirst();
+    }
+
     public BlockPos getAttachedTo() {
         return attachedTo;
     }

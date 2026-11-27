@@ -27,9 +27,11 @@ import net.minecraft.world.phys.Vec3;
  * <ul>
  *   <li>Holding a lead and nothing tied to you: right-click any block to tie a lead there. The
  *       other end follows you.</li>
- *   <li>Something tied to you (that lead, or animals): right-click any block to tie it there.
- *       Fences keep vanilla behavior (a normal fence knot).</li>
+ *   <li>Something tied to you (that lead, or animals): right-click any block to tie it there.</li>
  * </ul>
+ * On any other block the knot goes exactly where you clicked. On a fence it snaps to the
+ * center of the post, wrapped around it like a vanilla fence knot, wherever on the fence you
+ * clicked. Animals alone tied to a fence still use the vanilla fence knot.
  */
 public final class LeadConnections {
     private LeadConnections() {
@@ -49,9 +51,12 @@ public final class LeadConnections {
         BlockState state = level.getBlockState(pos);
         boolean holdingSomething = !heldBy(player).isEmpty();
 
+        boolean fence = state.is(BlockTags.FENCES);
+        Vec3 point = fence ? fencePostPoint(pos) : hit.getLocation();
+
         if (holdingSomething) {
-            if (state.is(BlockTags.FENCES)) {
-                return InteractionResult.PASS; // Vanilla ties it to a fence knot.
+            if (fence && heldBy(player).stream().noneMatch(LeadAnchorEntity.class::isInstance)) {
+                return InteractionResult.PASS; // Only animals: vanilla ties them to a fence knot.
             }
             if (hand != InteractionHand.MAIN_HAND) {
                 return InteractionResult.PASS; // Only tie once per click.
@@ -60,7 +65,7 @@ public final class LeadConnections {
                 return InteractionResult.PASS;
             }
             if (level instanceof ServerLevel serverLevel) {
-                tieToNewAnchor(player, serverLevel, pos, hit.getDirection(), hit.getLocation());
+                tieToNewAnchor(player, serverLevel, pos, hit.getDirection(), point);
             }
             return InteractionResult.SUCCESS;
         }
@@ -70,7 +75,7 @@ public final class LeadConnections {
                 return InteractionResult.PASS;
             }
             if (level instanceof ServerLevel) {
-                startLead(player, held, level, pos, hit.getDirection(), hit.getLocation(), null);
+                startLead(player, held, level, pos, hit.getDirection(), point, LeadAnchorEntity.findAt(level, point));
             }
             return InteractionResult.SUCCESS;
         }
@@ -97,15 +102,25 @@ public final class LeadConnections {
         level.gameEvent(GameEvent.BLOCK_ATTACH, attachedTo, GameEvent.Context.of(player));
     }
 
+    /**
+     * Where a knot sits on a fence: the center of the post, at the same height as a vanilla
+     * fence knot, so it wraps the post no matter which part of the fence was clicked.
+     */
+    public static Vec3 fencePostPoint(BlockPos fencePos) {
+        return new Vec3(fencePos.getX() + 0.5, fencePos.getY() + 0.625, fencePos.getZ() + 0.5);
+    }
+
     private static void tieToNewAnchor(Player player, ServerLevel level, BlockPos attachedTo, Direction face, Vec3 point) {
-        LeadAnchorEntity anchor = LeadAnchorEntity.create(level, attachedTo, face, point);
+        // Reuse a knot already at this spot (another lead on the same fence post) instead of stacking a second one.
+        LeadAnchorEntity existing = LeadAnchorEntity.findAt(level, point);
+        LeadAnchorEntity anchor = existing != null ? existing : LeadAnchorEntity.create(level, attachedTo, face, point);
         boolean tied = false;
         for (Leashable leashable : heldBy(player)) {
-            if (leashable.canHaveALeashAttachedTo(anchor)) {
-                if (!tied) {
+            if (leashable != anchor && leashable.canHaveALeashAttachedTo(anchor)) {
+                if (!tied && existing == null) {
                     level.addFreshEntity(anchor);
-                    tied = true;
                 }
+                tied = true;
                 leashable.setLeashedTo(anchor, true);
             }
         }
