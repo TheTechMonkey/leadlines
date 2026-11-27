@@ -3,7 +3,7 @@
   "id": "leadlines",
   "version": "${version}",
   "name": "Lead Lines",
-  "description": "Tie leads to any block, not just fences, by right-clicking. String ropes, power lines and decorations between logs, walls, fences or anything else. No sneaking needed, so it works while flying in creative.",
+  "description": "Tie leads to any block, not just fences, by right-clicking. String ropes, power lines and decorations between logs, walls, fences or anything else. No sneaking needed, so it works while flying in creative. Ropes are plain world data, not entities, so they don't show on minimaps or cost server time.",
   "authors": [
     "TechMonkey"
   ],

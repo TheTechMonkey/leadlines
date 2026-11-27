@@ -1,8 +1,10 @@
 {
-  "entity.leadlines.lead_anchor": "Lead Anchor",
+  "entity.leadlines.lead_anchor": "Old Lead Knot",
   "message.leadlines.slack.0": "Lead: pulled tight",
   "message.leadlines.slack.1": "Lead: slight sag",
   "message.leadlines.slack.2": "Lead: medium sag",
   "message.leadlines.slack.3": "Lead: loose",
-  "message.leadlines.slack.4": "Lead: very loose"
+  "message.leadlines.slack.4": "Lead: very loose",
+  "message.leadlines.too_far": "Lead: too far, ropes can be up to 50 blocks long",
+  "message.leadlines.need_lead": "Lead: you need a lead to tie this rope"
 }
